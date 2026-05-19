@@ -1,0 +1,36 @@
+﻿# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Distribution / packaging
+*.egg-info/
+
+# Virtual environments
+.venv/
+
+# Env files and secrets
+.env
+.env.*
+backend/.env
+
+# IDEs and editors
+.vscode/
+
+# Test artifacts
+.hypothesis/
+backend/.hypothesis/
+
+# Local build/data
+data/
+backend/data/
+
+# Caches
+backend/app/__pycache__/
+backend/app/db/__pycache__/
+backend/app/utils/__pycache__/
+
+# Misc
+.kiro/
+web/
+
