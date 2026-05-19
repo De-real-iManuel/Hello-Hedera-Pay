@@ -1,0 +1,25 @@
+{
+  "name": "hello-hedera-pay-web",
+  "version": "1.0.0",
+  "description": "Web UI for Hello-Hedera-Pay - AI-powered fact discovery with HBAR tipping",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 4028",
+    "build": "next build",
+    "start": "next start -p 4028",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "next": "^14.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "eslint-config-next": "^14.0.0"
+  }
+}
