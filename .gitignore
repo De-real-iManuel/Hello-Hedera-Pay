@@ -9,9 +9,10 @@ __pycache__/
 # Virtual environments
 .venv/
 
-# Env files and secrets
+# Env files and secrets (but allow .example files)
 .env
 .env.*
+!.env.example
 backend/.env
 
 # IDEs and editors
