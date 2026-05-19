@@ -32,5 +32,6 @@ backend/app/utils/__pycache__/
 
 # Misc
 .kiro/
-web/
-
+web/node_modules/
+web/.next/
+web/.env
