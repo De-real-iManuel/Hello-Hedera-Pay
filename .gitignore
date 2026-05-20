@@ -36,3 +36,7 @@ backend/app/utils/__pycache__/
 web/node_modules/
 web/.next/
 web/.env
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+web/tsconfig.tsbuildinfo
