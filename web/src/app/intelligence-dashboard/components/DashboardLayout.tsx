@@ -1,33 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import QueryPanel from './QueryPanel';
 import ResultsPanel from './ResultsPanel';
 import { IntelligenceResult, TipResponse, TipStatus, HCSStatus, HOLStatus } from '@/types/intelligence';
-import { useWalletConnect } from '@/hooks/useWalletConnect';
-import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardShell } from '../DashboardShellContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const TipSuccessModal = dynamic(() => import('./TipSuccessModal'), { ssr: false });
+const TipAmountModal = dynamic(() => import('./TipAmountModal'), { ssr: false });
 
-// ---------------------------------------------------------------------------
-// Backend Fact shape (as returned by POST /analyze)
-// ---------------------------------------------------------------------------
-interface BackendFact {
+interface Fact {
   id: string;
   title: string;
   summary: string;
-  confidence: number; // 0.0–1.0
+  confidence: number;
   sources: string[];
+}
+
+interface HistoryFact extends Fact {
+  category: string;
+  created_at: string;
 }
 
 interface ActiveTipResult extends TipResponse {
   factId: string;
+  amountHbar: number;
 }
 
-function mapFactsToResults(facts: BackendFact[], topic: string): IntelligenceResult[] {
+function mapFactsToResults(facts: Fact[], topic: string): IntelligenceResult[] {
   return facts.map((f) => ({
     id: f.id,
     title: f.title,
@@ -43,68 +46,94 @@ function mapFactsToResults(facts: BackendFact[], topic: string): IntelligenceRes
   }));
 }
 
-// ---------------------------------------------------------------------------
-// Authenticated fetch helper — attaches Bearer token when available
-// ---------------------------------------------------------------------------
-async function apiFetch(
-  url: string,
-  options: RequestInit,
-  accessToken: string | null
-): Promise<Response> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
-  };
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
-  }
-  return fetch(url, { ...options, headers });
+function mapHistoryFactsToResults(facts: HistoryFact[]): IntelligenceResult[] {
+  return facts.map((f) => ({
+    id: f.id,
+    title: f.title,
+    content: f.summary,
+    confidence: Math.round(f.confidence * 100),
+    hcsStatus: 'pending' as HCSStatus,
+    hcsTopicId: null,
+    txId: null,
+    timestamp: f.created_at,
+    holStatus: 'not-found' as HOLStatus,
+    sources: f.sources,
+    category: f.category,
+  }));
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 export default function DashboardLayout() {
   const [results, setResults] = useState<IntelligenceResult[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeQuery, setActiveQuery] = useState('');
+
   const [tipStatus, setTipStatus] = useState<Record<string, TipStatus>>({});
-  const [modalOpen, setModalOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [activeTipResult, setActiveTipResult] = useState<ActiveTipResult | null>(null);
 
-  const { sendHbar, isConnected } = useWalletConnect();
-  const { accessToken } = useAuth();
-  const { addRecentQuery } = useDashboardShell();
+  // Tip amount modal state
+  const [tipModalOpen, setTipModalOpen] = useState(false);
+  const [pendingTipFactId, setPendingTipFactId] = useState<string | null>(null);
 
-  const API = process.env.NEXT_PUBLIC_API_URL;
+  const { wallet, addRecentQuery, setOnSelectQuery } = useDashboardShell();
+  const { sendHbar, isConnected } = wallet;
+  const { accessToken } = useAuth();
+
+  const authHeaders = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${accessToken}`,
+  };
 
   // -------------------------------------------------------------------------
-  // handleAnalyze — public endpoint, no auth required
+  // handleSelectQuery — restore a past research session
+  // -------------------------------------------------------------------------
+  const handleSelectQuery = useCallback(async (query: string) => {
+    setIsAnalyzing(true);
+    setActiveQuery(query);
+    setResults([]);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/history/queries?limit=50`, {
+        headers: authHeaders,
+      });
+      if (!res.ok) throw new Error();
+      const data: { topic: string; facts: HistoryFact[] }[] = await res.json();
+      const match = data.find((q) => q.topic === query);
+      if (match && match.facts.length > 0) {
+        setResults(mapHistoryFactsToResults(match.facts));
+        setIsAnalyzing(false);
+        return;
+      }
+    } catch { /* fall through to fresh analysis */ }
+    await handleAnalyze(query);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken]);
+
+  React.useEffect(() => {
+    setOnSelectQuery(() => handleSelectQuery);
+  }, [handleSelectQuery, setOnSelectQuery]);
+
+  // -------------------------------------------------------------------------
+  // handleAnalyze
   // -------------------------------------------------------------------------
   const handleAnalyze = async (topic: string) => {
     setIsAnalyzing(true);
     setActiveQuery(topic);
     setResults([]);
     try {
-      const res = await apiFetch(
-        `${API}/analyze`,
-        { method: 'POST', body: JSON.stringify({ topic }) },
-        accessToken
-      );
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analyze`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ topic }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        toast.error((err as { detail?: string }).detail ?? 'Analysis failed. Please try again.');
+        toast.error((err as { message?: string }).message ?? 'Analysis failed. Please try again.');
         return;
       }
       const data = await res.json();
       const mapped = mapFactsToResults(data.facts, topic);
       setResults(mapped);
-      addRecentQuery({
-        id: `rq-${Date.now()}`,
-        query: topic,
-        time: 'Just now',
-        results: mapped.length,
-      });
+      addRecentQuery({ id: `rq-${Date.now()}`, query: topic, time: 'Just now', results: mapped.length });
     } catch {
       toast.error('Analysis failed. Please try again.');
     } finally {
@@ -113,74 +142,58 @@ export default function DashboardLayout() {
   };
 
   // -------------------------------------------------------------------------
-  // handleTip — requires wallet + auth token
+  // handleTip — opens amount modal first
   // -------------------------------------------------------------------------
-  const handleTip = async (factId: string) => {
+  const handleTip = (factId: string) => {
     if (!isConnected) {
       toast.info('Please connect your HashPack wallet before tipping.');
       return;
     }
-    if (!accessToken) {
-      toast.info('Please sign in before tipping.');
-      return;
-    }
+    setPendingTipFactId(factId);
+    setTipModalOpen(true);
+  };
 
+  // -------------------------------------------------------------------------
+  // handleTipConfirm — called after user enters amount
+  // -------------------------------------------------------------------------
+  const handleTipConfirm = async (amount: number) => {
+    const factId = pendingTipFactId;
+    if (!factId) return;
+    setTipModalOpen(false);
+    setPendingTipFactId(null);
     setTipStatus((prev) => ({ ...prev, [factId]: 'pending-wallet' }));
 
     try {
-      // Step 1: wallet signs & sends the HBAR transfer
       const txId = await sendHbar({
         recipientAccountId: process.env.NEXT_PUBLIC_TIP_RECIPIENT_ACCOUNT_ID!,
-        amount: parseFloat(process.env.NEXT_PUBLIC_TIP_AMOUNT_HBAR!),
+        amount,
       });
 
-      // Wallet confirmed — show success immediately
       setTipStatus((prev) => ({ ...prev, [factId]: 'success' }));
       toast.success('Tip sent! Transaction confirmed on Hedera.');
 
       const network = process.env.NEXT_PUBLIC_HEDERA_NETWORK ?? 'testnet';
       const hashscanUrl = `https://hashscan.io/${network}/transaction/${txId}`;
-      const hcsUrl = `https://hashscan.io/${network}/topic/${process.env.NEXT_PUBLIC_TIP_RECIPIENT_ACCOUNT_ID}`;
+      const hcsUrl = `https://hashscan.io/${network}/topic/${process.env.NEXT_PUBLIC_HCS_TOPIC_ID}`;
 
-      // Step 2: notify backend with auth token (best-effort)
       setTipStatus((prev) => ({ ...prev, [factId]: 'pending-api' }));
       try {
-        const res = await apiFetch(
-          `${API}/tip`,
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              fact_id: factId,
-              amount: parseFloat(process.env.NEXT_PUBLIC_TIP_AMOUNT_HBAR!),
-              transaction_id: txId,
-              topic: activeQuery,
-            }),
-          },
-          accessToken
-        );
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tip`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({ fact_id: factId, amount, transaction_id: txId, topic: activeQuery }),
+        });
         if (res.ok) {
           const tipData: TipResponse = await res.json();
-          setActiveTipResult({ factId, ...tipData });
+          setActiveTipResult({ factId, amountHbar: amount, ...tipData });
         } else {
-          setActiveTipResult({
-            factId,
-            transaction_id: txId,
-            hashscan_url: hashscanUrl,
-            hcs_message_id: 'pending',
-            hcs_url: hcsUrl,
-          });
+          setActiveTipResult({ factId, amountHbar: amount, transaction_id: txId, hashscan_url: hashscanUrl, hcs_message_id: 'pending', hcs_url: hcsUrl });
         }
       } catch {
-        setActiveTipResult({
-          factId,
-          transaction_id: txId,
-          hashscan_url: hashscanUrl,
-          hcs_message_id: 'pending',
-          hcs_url: hcsUrl,
-        });
+        setActiveTipResult({ factId, amountHbar: amount, transaction_id: txId, hashscan_url: hashscanUrl, hcs_message_id: 'pending', hcs_url: hcsUrl });
       }
 
-      setModalOpen(true);
+      setSuccessModalOpen(true);
       setTipStatus((prev) => ({ ...prev, [factId]: 'success' }));
       setTimeout(() => setTipStatus((prev) => ({ ...prev, [factId]: 'idle' })), 3000);
 
@@ -195,22 +208,15 @@ export default function DashboardLayout() {
     }
   };
 
-  const activeFact = activeTipResult
-    ? results.find((r) => r.id === activeTipResult.factId)
-    : null;
+  const activeFact = activeTipResult ? results.find((r) => r.id === activeTipResult.factId) : null;
+  const tipAmountFact = pendingTipFactId ? results.find((r) => r.id === pendingTipFactId) : null;
 
   return (
     <>
       <div className="flex flex-1 h-full overflow-hidden">
-        {/* Left panel */}
         <div className="w-80 xl:w-96 flex-shrink-0 border-r border-border overflow-y-auto scrollbar-thin">
-          <QueryPanel
-            onAnalyze={handleAnalyze}
-            isAnalyzing={isAnalyzing}
-            activeQuery={activeQuery}
-          />
+          <QueryPanel onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} activeQuery={activeQuery} />
         </div>
-        {/* Right panel */}
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <ResultsPanel
             results={results}
@@ -222,11 +228,18 @@ export default function DashboardLayout() {
         </div>
       </div>
 
+      <TipAmountModal
+        isOpen={tipModalOpen}
+        factTitle={tipAmountFact?.title ?? ''}
+        onConfirm={handleTipConfirm}
+        onClose={() => { setTipModalOpen(false); setPendingTipFactId(null); }}
+      />
+
       <TipSuccessModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        isOpen={successModalOpen}
+        onClose={() => setSuccessModalOpen(false)}
         factTitle={activeFact?.title ?? ''}
-        amountHbar={parseFloat(process.env.NEXT_PUBLIC_TIP_AMOUNT_HBAR ?? '0.5')}
+        amountHbar={activeTipResult?.amountHbar ?? 0}
         hashscanUrl={activeTipResult?.hashscan_url ?? ''}
         hcsUrl={activeTipResult?.hcs_url ?? ''}
       />
