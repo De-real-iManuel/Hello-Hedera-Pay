@@ -1,91 +1,149 @@
-# Next.js
+# Hello-Hedera-Pay — Frontend
 
-A modern Next.js 15 application built with TypeScript and Tailwind CSS.
+Next.js 15 frontend for the Hello-Hedera-Pay Truth Tip Agent. Provides the research dashboard, HashPack wallet integration, and HBAR tipping flow.
 
-## 🚀 Features
+---
 
-- **Next.js 15** - Latest version with improved performance and features
-- **React 19** - Latest React version with enhanced capabilities
-- **Tailwind CSS** - Utility-first CSS framework for rapid UI development
-
-## 🛠️ Installation
-
-1. Install dependencies:
-  ```bash
-  npm install
-  # or
-  yarn install
-  ```
-
-2. Start the development server:
-  ```bash
-  npm run dev
-  # or
-  yarn dev
-  ```
-3. Open [http://localhost:4028](http://localhost:4028) with your browser to see the result.
-
-## 📁 Project Structure
+## Architecture
 
 ```
-nextjs/
-├── public/             # Static assets
+web/
 ├── src/
-│   ├── app/            # App router components
-│   │   ├── layout.tsx  # Root layout component
-│   │   └── page.tsx    # Main page component
-│   ├── components/     # Reusable UI components
-│   ├── styles/         # Global styles and Tailwind configuration
-├── next.config.mjs     # Next.js configuration
-├── package.json        # Project dependencies and scripts
-├── postcss.config.js   # PostCSS configuration
-└── tailwind.config.js  # Tailwind CSS configuration
-
+│   ├── app/
+│   │   ├── layout.tsx                        # Root layout with AuthProvider
+│   │   ├── page.tsx                          # Landing page
+│   │   ├── login/
+│   │   │   └── page.tsx                      # Sign in / sign up
+│   │   └── intelligence-dashboard/
+│   │       ├── layout.tsx                    # Dashboard shell with sidebar and topbar
+│   │       ├── page.tsx                      # Main query and results view
+│   │       ├── DashboardShellContext.tsx      # Shared wallet and query state
+│   │       └── components/
+│   │           ├── DashboardLayout.tsx        # Query panel + results panel
+│   │           ├── DashboardSidebar.tsx       # Navigation and recent queries
+│   │           ├── DashboardTopbar.tsx        # Wallet connect button
+│   │           ├── QueryPanel.tsx             # Topic input
+│   │           ├── ResultsPanel.tsx           # Facts grid
+│   │           ├── IntelligenceCard.tsx       # Individual fact card with tip button
+│   │           └── TipSuccessModal.tsx        # Post-tip confirmation modal
+│   ├── contexts/
+│   │   └── AuthContext.tsx                   # Supabase session and access token
+│   ├── hooks/
+│   │   └── useWalletConnect.ts               # HashPack wallet connection and HBAR transfer
+│   ├── lib/
+│   │   └── supabase.ts                       # Supabase browser client
+│   └── types/
+│       └── intelligence.ts                   # Shared TypeScript types
+├── public/                                   # Static assets
+├── .env.example                              # Environment variable template
+├── next.config.mjs                           # Next.js configuration
+├── tailwind.config.js                        # Tailwind CSS configuration
+└── package.json                              # Dependencies and scripts
 ```
 
-## 🧩 Page Editing
+---
 
-You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
+## Setup
 
-## 🎨 Styling
+### Requirements
 
-This project uses Tailwind CSS for styling with the following features:
-- Utility-first approach for rapid development
-- Custom theme configuration
-- Responsive design utilities
-- PostCSS and Autoprefixer integration
+- Node.js 18+
+- A running instance of the [backend](../backend/README.md)
+- [WalletConnect](https://cloud.walletconnect.com) project ID
+- [Supabase](https://supabase.com) project
 
-## 📦 Available Scripts
+### Installation
 
-- `npm run dev` - Start development server on port 4028
-- `npm run build` - Build the application for production
-- `npm run start` - Start the development server
-- `npm run serve` - Start the production server
-- `npm run lint` - Run ESLint to check code quality
-- `npm run lint:fix` - Fix ESLint issues automatically
-- `npm run format` - Format code with Prettier
+```bash
+npm install
+cp .env.example .env.local
+```
 
-## 📱 Deployment
+Fill in all values in `.env.local`, then start the development server:
 
-Build the application for production:
+```bash
+npm run dev
+```
 
-  ```bash
-  npm run build
-  ```
+App available at `http://localhost:4028`
 
-## 📚 Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Environment Variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_API_URL` | Backend base URL e.g. `http://localhost:8000` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon public key |
+| `NEXT_PUBLIC_HEDERA_NETWORK` | `testnet` or `mainnet` |
+| `NEXT_PUBLIC_TIP_RECIPIENT_ACCOUNT_ID` | Hedera account that receives HBAR tips |
+| `NEXT_PUBLIC_HCS_TOPIC_ID` | HCS topic ID for tip receipts |
+| `NEXT_PUBLIC_TIP_AMOUNT_HBAR` | Default tip amount in HBAR |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | WalletConnect project ID |
 
-You can check out the [Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## 🙏 Acknowledgments
+## Tip Flow
 
-- Built with [Rocket.new](https://rocket.new)
-- Powered by Next.js and React
-- Styled with Tailwind CSS
+```
+User clicks "Tip HBAR" on a fact card
+        │
+        ▼
+HashPack wallet opens — user approves HBAR transfer
+        │
+        ▼
+Transaction confirmed on Hedera testnet
+        │
+        ▼
+Backend POST /tip called with transaction ID
+        │
+        ├── Publishes Tip_Receipt to HCS topic
+        └── Persists tip to Supabase
+                │
+                ▼
+        Success modal shows:
+        ├── HashScan transaction link
+        └── HashScan HCS record link
+```
 
-Built with ❤️ on Rocket.new
+---
+
+## Authentication Flow
+
+1. User visits `/login` and signs in with email and password via Supabase Auth
+2. Supabase issues a JWT stored in the browser session
+3. `AuthContext` exposes the `accessToken` to all components
+4. Every API call to the backend includes `Authorization: Bearer <token>`
+5. `AuthGuard` wraps the dashboard and redirects unauthenticated users to `/login`
+
+---
+
+## Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start development server on port 4028 |
+| `npm run build` | Build for production |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm run lint:fix` | Fix ESLint issues |
+| `npm run format` | Format with Prettier |
+| `npm run type-check` | TypeScript type checking |
+
+---
+
+## Deployment
+
+Deploy to Vercel:
+
+1. Connect the GitHub repo to Vercel
+2. Set root directory to `web`
+3. Add all `NEXT_PUBLIC_*` environment variables
+4. Deploy
+
+---
+
+## License
+
+MIT
