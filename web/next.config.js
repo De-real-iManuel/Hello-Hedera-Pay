@@ -1,11 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   compress: true,
   poweredByHeader: false,
-  env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  productionBrowserSourceMaps: false,
+
+  images: {
+    minimumCacheTTL: 604800,
+    formats: ['image/avif', 'image/webp'],
+  },
+
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'framer-motion', 'recharts'],
   },
 };
 
