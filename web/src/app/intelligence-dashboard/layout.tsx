@@ -10,7 +10,7 @@ import { DashboardShellProvider, useDashboardShell } from './DashboardShellConte
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { recentQueries, wallet } = useDashboardShell();
+  const { recentQueries, wallet, onSelectQuery } = useDashboardShell();
   const { signOut } = useAuth();
   const { isConnected, accountId, connect, disconnect } = wallet;
 
@@ -33,6 +33,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <DashboardSidebar
         open={sidebarOpen}
         onToggle={() => setSidebarOpen((o) => !o)}
+        onSelectQuery={onSelectQuery}
         recentQueries={recentQueries}
       />
       <div className="flex flex-col flex-1 min-w-0">
