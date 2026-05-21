@@ -1,42 +1,45 @@
 'use client';
 
-import React from 'react';
-import { Database, CheckCircle2, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Database, CheckCircle2, Clock, ExternalLink } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
-const publications = [
-  { id: 'pub-001', topicId: '0.0.4821047', status: 'confirmed' as const, age: '2 min ago' },
-  { id: 'pub-002', topicId: '0.0.4821051', status: 'confirmed' as const, age: '18 min ago' },
-  { id: 'pub-003', topicId: '0.0.4821060', status: 'pending' as const, age: 'Just now' },
-  { id: 'pub-004', topicId: '0.0.4820998', status: 'confirmed' as const, age: '1h ago' },
-];
-
-function StatusIcon({ status }: { status: 'confirmed' | 'pending' | 'failed' }) {
-  if (status === 'confirmed') return <CheckCircle2 size={12} className="text-primary" />;
-  if (status === 'pending') return <Clock size={12} className="text-amber-400" />;
-  return <AlertTriangle size={12} className="text-red-400" />;
+interface TipRecord {
+  id: string;
+  transaction_id: string;
+  hcs_message_id: string;
+  hcs_url: string;
+  created_at: string;
 }
 
 export default function HCSStatusWidget() {
-  const confirmed = publications.filter((p) => p.status === 'confirmed').length;
-  const pending = publications.filter((p) => p.status === 'pending').length;
+  const { accessToken } = useAuth();
+  const [tips, setTips] = useState<TipRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!accessToken) { setLoading(false); return; }
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/history/tips?limit=5`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then((r) => r.ok ? r.json() : [])
+      .then(setTips)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [accessToken]);
+
+  const confirmed = tips.filter((t) => t.hcs_message_id !== 'pending').length;
+  const pending = tips.filter((t) => t.hcs_message_id === 'pending').length;
 
   return (
     <div className="glass-card rounded-xl p-4 flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Database size={14} className="text-primary" />
-          </div>
-          <span className="text-sm font-semibold text-foreground">HCS Publications</span>
+      <div className="flex items-center gap-2">
+        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Database size={14} className="text-primary" />
         </div>
-        <div className="flex items-center gap-1.5">
-          <TrendingUp size={12} className="text-primary" />
-          <span className="text-xs font-medium text-primary">+12 today</span>
-        </div>
+        <span className="text-sm font-semibold text-foreground">HCS Publications</span>
       </div>
 
-      {/* Stats row */}
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-0.5 px-3 py-2 rounded-lg bg-primary/8 border border-primary/15">
           <span className="text-lg font-bold text-primary font-mono-data">{confirmed}</span>
@@ -48,22 +51,34 @@ export default function HCSStatusWidget() {
         </div>
       </div>
 
-      {/* Recent publications */}
       <div className="flex flex-col gap-2">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
-          Recent
-        </span>
-        {publications.map((pub) => (
-          <div key={pub.id} className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <StatusIcon status={pub.status} />
-              <span className="text-xs font-mono-data text-muted-foreground truncate">
-                {pub.topicId}
-              </span>
-            </div>
-            <span className="text-xs text-muted-foreground flex-shrink-0">{pub.age}</span>
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Recent</span>
+        {loading ? (
+          <div className="flex items-center gap-2 py-1">
+            <div className="w-3 h-3 rounded-full border border-primary border-t-transparent animate-spin" />
+            <span className="text-xs text-muted-foreground">Loading...</span>
           </div>
-        ))}
+        ) : tips.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">No publications yet — tip a fact to publish on-chain.</p>
+        ) : (
+          tips.map((tip) => (
+            <div key={tip.id} className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {tip.hcs_message_id !== 'pending'
+                  ? <CheckCircle2 size={12} className="text-primary flex-shrink-0" />
+                  : <Clock size={12} className="text-amber-400 flex-shrink-0" />
+                }
+                <span className="text-xs font-mono-data text-muted-foreground truncate">
+                  #{tip.hcs_message_id !== 'pending' ? tip.hcs_message_id : 'pending'}
+                </span>
+              </div>
+              <a href={tip.hcs_url} target="_blank" rel="noopener noreferrer"
+                className="text-primary hover:opacity-70 transition-opacity flex-shrink-0">
+                <ExternalLink size={11} />
+              </a>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
