@@ -1,42 +1,47 @@
-﻿# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*.pyo
-
-# Distribution / packaging
-*.egg-info/
-
-# Virtual environments
-.venv/
-
-# Env files and secrets (but allow .example files)
+# ── Secrets ────────────────────────────────────────────────────────────────────
 .env
 .env.*
 !.env.example
 backend/.env
+web/.env
+web/.env.local
 
-# IDEs and editors
-.vscode/
-
-# Test artifacts
+# ── Python ─────────────────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .hypothesis/
 backend/.hypothesis/
-
-# Local build/data
-data/
 backend/data/
 
-# Caches
-backend/app/__pycache__/
-backend/app/db/__pycache__/
-backend/app/utils/__pycache__/
-
-# Misc
-.kiro/
+# ── Node / Next.js ─────────────────────────────────────────────────────────────
+node_modules/
 web/node_modules/
 web/.next/
-web/.env
+web/out/
+web/build/
+web/coverage/
+package-lock.json
+web/package-lock.json
 
-# TypeScript incremental build cache
-tsconfig.tsbuildinfo
-web/tsconfig.tsbuildinfo
+# ── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE ────────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+
+# ── Misc ───────────────────────────────────────────────────────────────────────
+*.log
+.vercel/
+.kiro/
+generate_keys.py
