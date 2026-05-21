@@ -13,12 +13,15 @@ import {
   ChevronUp,
   Share2,
 } from 'lucide-react';
-import { IntelligenceResult } from '@/types/intelligence';
+import { IntelligenceResult, TipStatus } from '@/types/intelligence';
 import { toast } from 'sonner';
+import { Zap } from 'lucide-react';
 
 interface Props {
   result: IntelligenceResult;
   index: number;
+  tipStatus: TipStatus;
+  onTip: (factId: string) => void;
 }
 
 function ConfidenceBar({ value }: { value: number }) {
@@ -73,7 +76,7 @@ function HCSStatusBadge({ status }: { status: 'published' | 'pending' | 'failed'
   );
 }
 
-export default function IntelligenceCard({ result, index }: Props) {
+export default function IntelligenceCard({ result, index, tipStatus, onTip }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const handleCopyTxId = () => {
@@ -209,6 +212,22 @@ export default function IntelligenceCard({ result, index }: Props) {
               title="Share intelligence"
             >
               <Share2 size={12} />
+            </button>
+            <button
+              onClick={() => onTip(result.id)}
+              disabled={tipStatus === 'pending-wallet' || tipStatus === 'pending-api'}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/40 bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Tip this fact with HBAR"
+            >
+              {tipStatus === 'pending-wallet' ? (
+                <><span className="w-3 h-3 rounded-full border border-primary border-t-transparent animate-spin" />Approve in Wallet</>
+              ) : tipStatus === 'pending-api' ? (
+                <><span className="w-3 h-3 rounded-full border border-primary border-t-transparent animate-spin" />Recording...</>
+              ) : tipStatus === 'success' ? (
+                <><CheckCircle2 size={12} />Tipped!</>
+              ) : (
+                <><Zap size={12} />Tip HBAR</>
+              )}
             </button>
           </div>
         </div>
