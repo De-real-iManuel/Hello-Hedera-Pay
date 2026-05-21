@@ -6,21 +6,17 @@ import AuthGuard from '@/components/AuthGuard';
 import DashboardSidebar from './components/DashboardSidebar';
 import DashboardTopbar from './components/DashboardTopbar';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWalletConnect } from '@/hooks/useWalletConnect';
 import { DashboardShellProvider, useDashboardShell } from './DashboardShellContext';
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { recentQueries } = useDashboardShell();
+  const { recentQueries, wallet } = useDashboardShell();
   const { signOut } = useAuth();
-  const { isConnected, accountId, connect, disconnect } = useWalletConnect();
+  const { isConnected, accountId, connect, disconnect } = wallet;
 
   const handleConnect = async () => {
-    try {
-      await connect();
-    } catch {
-      toast.error('Wallet connection failed. Please try again.');
-    }
+    try { await connect(); }
+    catch { toast.error('Wallet connection failed. Please try again.'); }
   };
 
   const handleDisconnect = async () => {
@@ -30,7 +26,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   const handleSignOut = async () => {
     await signOut();
-    toast.info('Signed out.');
   };
 
   return (
@@ -38,7 +33,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       <DashboardSidebar
         open={sidebarOpen}
         onToggle={() => setSidebarOpen((o) => !o)}
-        onSelectQuery={() => {}}
         recentQueries={recentQueries}
       />
       <div className="flex flex-col flex-1 min-w-0">
