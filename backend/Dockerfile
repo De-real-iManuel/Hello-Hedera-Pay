@@ -1,9 +1,9 @@
 FROM python:3.11-slim
 
-# Install Java JRE and compilation tools required by hedera-sdk-py JVM bridge
+# Install Java JDK (required for jni.h headers) and build compilation tools
 RUN apt-get update && apt-get install -y \
-    default-jre-headless \
-    gcc \
+    default-jdk-headless \
+    build-essential \
     python3-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
