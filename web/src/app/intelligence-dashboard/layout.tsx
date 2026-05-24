@@ -1,11 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import AuthGuard from '@/components/AuthGuard';
-import DashboardSidebar from './components/DashboardSidebar';
-import DashboardTopbar from './components/DashboardTopbar';
 import { useAuth } from '@/contexts/AuthContext';
+
+const DashboardSidebar = dynamic(() => import('./components/DashboardSidebar'), {
+  ssr: false,
+  loading: () => <div className="w-64 flex-shrink-0 bg-background border-r border-border animate-pulse" />,
+});
+const DashboardTopbar = dynamic(() => import('./components/DashboardTopbar'), {
+  ssr: false,
+  loading: () => <div className="h-14 border-b border-border bg-background animate-pulse" />,
+});
 import { DashboardShellProvider, useDashboardShell } from './DashboardShellContext';
 
 function DashboardShell({ children }: { children: React.ReactNode }) {

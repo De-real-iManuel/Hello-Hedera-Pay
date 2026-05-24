@@ -13,6 +13,7 @@ export interface IntelligenceResult {
   holStatus: HOLStatus;
   sources: string[];
   category: string;
+  agentRunId?: string;
 }
 
 export interface TipRequest {

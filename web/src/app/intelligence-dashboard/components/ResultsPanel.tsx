@@ -3,7 +3,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Sparkles } from 'lucide-react';
-import { IntelligenceResult } from '@/types/intelligence';
+import { IntelligenceResult, TipStatus } from '@/types/intelligence';
 import IntelligenceCard from './IntelligenceCard';
 import ResultsSkeleton from './ResultsSkeleton';
 import HCSStatusWidget from './HCSStatusWidget';
@@ -13,9 +13,11 @@ interface Props {
   results: IntelligenceResult[];
   isAnalyzing: boolean;
   activeQuery: string;
+  tipStatus: Record<string, TipStatus>;
+  onTip: (factId: string) => void;
 }
 
-export default function ResultsPanel({ results, isAnalyzing, activeQuery }: Props) {
+export default function ResultsPanel({ results, isAnalyzing, activeQuery, tipStatus, onTip }: Props) {
   return (
     <div className="flex flex-col h-full">
       {/* Panel header */}
@@ -63,7 +65,13 @@ export default function ResultsPanel({ results, isAnalyzing, activeQuery }: Prop
                 transition={{ duration: 0.4 }}
               >
                 {results.map((result, i) => (
-                  <IntelligenceCard key={result.id} result={result} index={i} />
+                  <IntelligenceCard
+                    key={result.id}
+                    result={result}
+                    index={i}
+                    tipStatus={tipStatus[result.id] ?? 'idle'}
+                    onTip={onTip}
+                  />
                 ))}
               </motion.div>
             </AnimatePresence>

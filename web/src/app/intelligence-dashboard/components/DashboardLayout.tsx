@@ -3,8 +3,14 @@
 import React, { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
-import QueryPanel from './QueryPanel';
-import ResultsPanel from './ResultsPanel';
+const QueryPanel = dynamic(() => import('./QueryPanel'), {
+  ssr: false,
+  loading: () => <div className="flex flex-col h-full p-5 gap-6 animate-pulse"><div className="h-8 w-3/4 rounded bg-muted" /><div className="h-32 w-full rounded-lg bg-muted" /><div className="h-10 w-full rounded-lg bg-muted" /></div>,
+});
+const ResultsPanel = dynamic(() => import('./ResultsPanel'), {
+  ssr: false,
+  loading: () => <div className="flex flex-col h-full p-5 gap-5 animate-pulse"><div className="grid grid-cols-2 gap-4"><div className="h-24 rounded-xl bg-muted" /><div className="h-24 rounded-xl bg-muted" /></div><div className="h-48 rounded-2xl bg-muted" /><div className="h-48 rounded-2xl bg-muted" /></div>,
+});
 import { IntelligenceResult, TipResponse, TipStatus, HCSStatus, HOLStatus } from '@/types/intelligence';
 import { useDashboardShell } from '../DashboardShellContext';
 import { useAuth } from '@/contexts/AuthContext';
