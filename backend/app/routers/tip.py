@@ -78,8 +78,10 @@ async def tip(
             confidence=0.0,
             sources="[]",
             category=request.topic,
+            agent_run_id=None,
+            hcs_topic_id=None,
         )
-        await db.merge(fact_record)
+        fact_record = await db.merge(fact_record)
 
     # HCS publish is best-effort — the HBAR is already on-chain regardless
     hcs_message_id = "pending"
@@ -103,7 +105,7 @@ async def tip(
             exc,
         )
 
-    db.add(TipRecord(
+    tip_record = TipRecord(
         id=str(uuid.uuid4()),
         user_id=user_id,
         fact_id=request.fact_id,
@@ -115,7 +117,9 @@ async def tip(
         hcs_url=hcs_url,
         fact_agent_run_id=fact_record.agent_run_id,
         fact_hcs_topic_id=fact_record.hcs_topic_id,
-    ))
+    )
+    db.add(tip_record)
+    await db.commit()
 
     return TipResponse(
         transaction_id=request.transaction_id,
