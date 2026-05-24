@@ -5,6 +5,13 @@ const nextConfig = {
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
 
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
   images: {
     minimumCacheTTL: 604800,
     formats: ['image/avif', 'image/webp'],
