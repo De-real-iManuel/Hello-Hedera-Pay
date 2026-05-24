@@ -49,3 +49,25 @@ async def get_current_user_id(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token.",
         )
+
+
+async def get_optional_user_id(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer),
+) -> Optional[str]:
+    """
+    Optionally extract and validate the Supabase JWT.
+    Returns the user ID (sub claim) if valid, otherwise returns None.
+    """
+    if credentials is None:
+        return None
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+        return payload.get("sub")
+    except JWTError:
+        return None
+

@@ -15,6 +15,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import get_current_user_id
 from app.db.database import get_db
 from app.db.models import FactRecord, QueryRecord
 from app.models import AnalyzeRequest, AnalyzeResponse
@@ -31,6 +32,7 @@ router = APIRouter(tags=["analyze"])
 async def analyze(
     request: AnalyzeRequest,
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
 ) -> AnalyzeResponse:
     """
     Analyze a topic using the AI research pipeline and persist results.
@@ -52,10 +54,11 @@ async def analyze(
 
     query_record = QueryRecord(
         id=str(uuid.uuid4()),
-        user_id="anonymous",
+        user_id=user_id,
         topic=request.topic,
         fact_count=len(facts),
     )
+
     db.add(query_record)
 
     for fact in facts:
@@ -67,6 +70,9 @@ async def analyze(
             confidence=fact.confidence,
             sources=json.dumps(fact.sources),
             category=request.topic,
+            agent_run_id=getattr(fact, 'agent_run_id', None),
+            hcs_topic_id=getattr(fact, 'hcs_topic_id', None),
         ))
 
     return AnalyzeResponse(facts=facts)
+
