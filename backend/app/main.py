@@ -29,26 +29,37 @@ async def _create_tables() -> None:
     import app.db.models  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # --- Auto-migration for SQLite ---
+        # create_all only creates tables that don't exist; it won't add new
+        # columns to existing tables.  We ALTER TABLE to add any missing ones.
+        _migrations = [
+            ("facts", "agent_run_id", "VARCHAR(100)"),
+            ("facts", "hcs_topic_id", "VARCHAR(100)"),
+            ("tips", "fact_agent_run_id", "VARCHAR(100)"),
+            ("tips", "fact_hcs_topic_id", "VARCHAR(100)"),
+        ]
+        for table, column, col_type in _migrations:
+            try:
+                await conn.exec_driver_sql(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
+                )
+                logger.info("Migration: added %s.%s", table, column)
+            except Exception:
+                # Column already exists — safe to ignore
+                pass
+
     logger.info("Database tables ready.")
 
 
-try:
-    from app.routers.analyze import router as analyze_router
-    app.include_router(analyze_router)
-except ImportError:
-    logger.warning("analyze router not yet available")
+from app.routers.analyze import router as analyze_router
+app.include_router(analyze_router)
 
-try:
-    from app.routers.tip import router as tip_router
-    app.include_router(tip_router)
-except ImportError:
-    logger.warning("tip router not yet available")
+from app.routers.tip import router as tip_router
+app.include_router(tip_router)
 
-try:
-    from app.routers.history import router as history_router
-    app.include_router(history_router)
-except ImportError:
-    logger.warning("history router not yet available")
+from app.routers.history import router as history_router
+app.include_router(history_router)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["health"])
