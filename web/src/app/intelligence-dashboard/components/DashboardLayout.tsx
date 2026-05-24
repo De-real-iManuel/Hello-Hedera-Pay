@@ -72,6 +72,7 @@ export default function DashboardLayout() {
   const [results, setResults] = useState<IntelligenceResult[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeQuery, setActiveQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'analyze' | 'results'>('analyze');
 
   const [tipStatus, setTipStatus] = useState<Record<string, TipStatus>>({});
   const [successModalOpen, setSuccessModalOpen] = useState(false);
@@ -107,6 +108,7 @@ export default function DashboardLayout() {
       if (match && match.facts.length > 0) {
         setResults(mapHistoryFactsToResults(match.facts));
         setIsAnalyzing(false);
+        setActiveTab('results');
         return;
       }
     } catch { /* fall through to fresh analysis */ }
@@ -125,6 +127,7 @@ export default function DashboardLayout() {
     setIsAnalyzing(true);
     setActiveQuery(topic);
     setResults([]);
+    setActiveTab('results');
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analyze`, {
         method: 'POST',
@@ -219,11 +222,47 @@ export default function DashboardLayout() {
 
   return (
     <>
-      <div className="flex flex-1 h-full overflow-hidden">
-        <div className="w-80 xl:w-96 flex-shrink-0 border-r border-border overflow-y-auto scrollbar-thin">
+      <div className="flex flex-col lg:flex-row flex-1 h-full overflow-hidden">
+        {/* Mobile Tab Switcher */}
+        <div className="flex lg:hidden border-b border-border bg-card p-2 gap-2 flex-shrink-0">
+          <button
+            onClick={() => setActiveTab('analyze')}
+            className={`flex-1 py-2 text-center text-xs font-semibold rounded-lg transition-all ${
+              activeTab === 'analyze'
+                ? 'bg-primary/10 text-primary border border-primary/25'
+                : 'text-muted-foreground hover:bg-muted/40'
+            }`}
+          >
+            1. Analyze Topic
+          </button>
+          <button
+            onClick={() => setActiveTab('results')}
+            className={`flex-1 py-2 text-center text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+              activeTab === 'results'
+                ? 'bg-primary/10 text-primary border border-primary/25'
+                : 'text-muted-foreground hover:bg-muted/40'
+            }`}
+          >
+            2. Insights Panel
+            {results.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-[10px] text-primary font-mono-data">
+                {results.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Query/Search Panel */}
+        <div className={`w-full lg:w-80 lg:block xl:w-96 flex-shrink-0 border-r border-border overflow-y-auto scrollbar-thin ${
+          activeTab === 'analyze' ? 'block' : 'hidden'
+        }`}>
           <QueryPanel onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} activeQuery={activeQuery} />
         </div>
-        <div className="flex-1 overflow-y-auto scrollbar-thin">
+
+        {/* Results/Insights List */}
+        <div className={`flex-1 overflow-y-auto lg:block scrollbar-thin ${
+          activeTab === 'results' ? 'block' : 'hidden'
+        }`}>
           <ResultsPanel
             results={results}
             isAnalyzing={isAnalyzing}
