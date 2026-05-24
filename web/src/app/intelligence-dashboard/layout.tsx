@@ -17,7 +17,7 @@ const DashboardTopbar = dynamic(() => import('./components/DashboardTopbar'), {
 import { DashboardShellProvider, useDashboardShell } from './DashboardShellContext';
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { recentQueries, wallet, onSelectQuery } = useDashboardShell();
   const { signOut } = useAuth();
   const { isConnected, accountId, connect, disconnect } = wallet;
@@ -37,13 +37,42 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <DashboardSidebar
-        open={sidebarOpen}
-        onToggle={() => setSidebarOpen((o) => !o)}
-        onSelectQuery={onSelectQuery}
-        recentQueries={recentQueries}
-      />
+    <div className="flex h-screen bg-background overflow-hidden relative">
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex flex-shrink-0">
+        <DashboardSidebar
+          open={sidebarOpen}
+          onToggle={() => setSidebarOpen((o) => !o)}
+          onSelectQuery={onSelectQuery}
+          recentQueries={recentQueries}
+        />
+      </div>
+
+      {/* Mobile Drawer Sidebar */}
+      {sidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop overlay */}
+          <div
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+          />
+          {/* Drawer body */}
+          <div
+            className="relative flex flex-col w-64 max-w-xs bg-card h-full shadow-2xl transition-transform duration-300 transform translate-x-0"
+          >
+            <DashboardSidebar
+              open={true}
+              onToggle={() => setSidebarOpen(false)}
+              onSelectQuery={(q) => {
+                onSelectQuery(q);
+                setSidebarOpen(false); // Close drawer on selection
+              }}
+              recentQueries={recentQueries}
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col flex-1 min-w-0">
         <DashboardTopbar
           sidebarOpen={sidebarOpen}
