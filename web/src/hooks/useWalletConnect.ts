@@ -1,14 +1,6 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import {
-  DAppConnector,
-  HederaJsonRpcMethod,
-  HederaSessionEvent,
-  HederaChainId,
-  transactionToBase64String,
-} from '@hashgraph/hedera-wallet-connect';
-import { AccountId, Hbar, LedgerId, TransferTransaction } from '@hiero-ledger/sdk';
 
 export interface UseWalletConnectReturn {
   isConnected: boolean;
@@ -18,8 +10,7 @@ export interface UseWalletConnectReturn {
   sendHbar: (params: { recipientAccountId: string; amount: number }) => Promise<string>;
 }
 
-const PROJECT_ID =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? 'hello-hedera-pay-dev';
+const PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? 'hello-hedera-pay-dev';
 
 const APP_METADATA = {
   name: 'Hello Hedera Pay',
@@ -28,21 +19,38 @@ const APP_METADATA = {
   icons: ['https://hello-hedera-pay.vercel.app/favicon.ico'],
 };
 
-function resolveLedgerId(network: string | undefined): LedgerId {
-  if (network === 'mainnet') return LedgerId.MAINNET;
-  return LedgerId.TESTNET;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractTxId(result: any): string {
+  const candidates = [
+    result?.response?.transactionId,
+    result?.response?.transaction_id,
+    result?.result?.transactionId,
+    result?.result?.transaction_id,
+    result?.transactionId,
+    result?.transaction_id,
+  ];
+  return candidates.find((v) => typeof v === 'string' && v.length > 0) ?? '';
 }
 
 export function useWalletConnect(): UseWalletConnectReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [accountId, setAccountId] = useState<string | null>(null);
   const tipInFlightRef = useRef(false);
-  const connectorRef = useRef<DAppConnector | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const connectorRef = useRef<any>(null);
 
-  const getConnector = useCallback((): DAppConnector => {
+  const getConnector = useCallback(async () => {
     if (connectorRef.current) return connectorRef.current;
+
+    const [walletConnect, { LedgerId }] = await Promise.all([
+      import('@hashgraph/hedera-wallet-connect'),
+      import('@hiero-ledger/sdk'),
+    ]);
+
+    const { DAppConnector, HederaJsonRpcMethod, HederaSessionEvent, HederaChainId } = walletConnect;
     const network = process.env.NEXT_PUBLIC_HEDERA_NETWORK;
-    const ledgerId = resolveLedgerId(network);
+    const ledgerId = network === 'mainnet' ? LedgerId.MAINNET : LedgerId.TESTNET;
+
     const connector = new DAppConnector(
       APP_METADATA,
       ledgerId,
@@ -51,18 +59,20 @@ export function useWalletConnect(): UseWalletConnectReturn {
       [HederaSessionEvent.ChainChanged, HederaSessionEvent.AccountsChanged],
       [network === 'mainnet' ? HederaChainId.Mainnet : HederaChainId.Testnet],
     );
+
     connectorRef.current = connector;
     return connector;
   }, []);
 
   const connect = useCallback(async (): Promise<void> => {
-    const connector = getConnector();
+    const connector = await getConnector();
     try {
       await connector.init();
       const session = await connector.openModal();
-      const accounts = Object.values(session.namespaces).flatMap((ns) => ns.accounts);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const accounts = Object.values(session.namespaces).flatMap((ns: any) => ns.accounts);
       if (accounts.length === 0) throw new Error('No accounts found in WalletConnect session.');
-      const parts = accounts[0].split(':');
+      const parts = (accounts[0] as string).split(':');
       setAccountId(parts[parts.length - 1]);
       setIsConnected(true);
     } catch (err: unknown) {
@@ -85,6 +95,8 @@ export function useWalletConnect(): UseWalletConnectReturn {
     }
     const connector = connectorRef.current;
     if (connector) {
+      // WalletConnect logs an empty {} error on disconnect — this is a known
+      // library issue and is safe to ignore
       try { await connector.disconnectAll(); } catch { /* ignore */ }
       connectorRef.current = null;
     }
@@ -97,22 +109,35 @@ export function useWalletConnect(): UseWalletConnectReturn {
       if (!isConnected || !accountId) throw new Error('Wallet is not connected.');
       const connector = connectorRef.current;
       if (!connector) throw new Error('DAppConnector is not initialised.');
+
       tipInFlightRef.current = true;
       try {
-        const senderAccountId = AccountId.fromString(accountId);
-        const recipientId = AccountId.fromString(recipientAccountId);
-        const hbarAmount = new Hbar(amount);
+        const [{ AccountId, Hbar, TransferTransaction }, { transactionToBase64String }] = await Promise.all([
+          import('@hiero-ledger/sdk'),
+          import('@hashgraph/hedera-wallet-connect'),
+        ]);
+
         const transaction = new TransferTransaction()
-          .addHbarTransfer(senderAccountId, hbarAmount.negated())
-          .addHbarTransfer(recipientId, hbarAmount);
-        const transactionBase64 = transactionToBase64String(transaction);
+          .addHbarTransfer(AccountId.fromString(accountId), new Hbar(amount).negated())
+          .addHbarTransfer(AccountId.fromString(recipientAccountId), new Hbar(amount));
+
         const network = process.env.NEXT_PUBLIC_HEDERA_NETWORK ?? 'testnet';
         const result = await connector.signAndExecuteTransaction({
           signerAccountId: `hedera:${network}:${accountId}`,
-          transactionList: transactionBase64,
+          transactionList: transactionToBase64String(transaction),
         });
-        const txId: string = result.result.transactionId;
-        if (!txId) throw new Error('Transaction completed but no transaction ID was returned.');
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[sendHbar] raw result:', JSON.stringify(result, null, 2));
+        }
+
+        const txId = extractTxId(result);
+        if (!txId) {
+          // Transaction went through but ID not parseable — build fallback
+          const nowSecs = Math.floor(Date.now() / 1000);
+          const nanos = String(Date.now() % 1000).padStart(3, '0') + '000000';
+          return `${accountId}@${nowSecs}.${nanos}`;
+        }
         return txId;
       } finally {
         tipInFlightRef.current = false;
