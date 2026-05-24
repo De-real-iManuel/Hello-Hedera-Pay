@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["tip"])
 
-_TRANSACTION_ID_RE = re.compile(r"^0\.0\.\d+@\d+\.\d+$")
+_TRANSACTION_ID_RE = re.compile(r"^0\.0\.\d+[@\-]\d+[\.\-]\d+$")
 
 
 @router.post("/tip", response_model=TipResponse)
@@ -46,12 +46,40 @@ async def tip(
     if not _TRANSACTION_ID_RE.match(request.transaction_id):
         raise HTTPException(
             status_code=422,
-            detail="transaction_id must be in format 0.0.<number>@<seconds>.<nanos>",
+            detail="transaction_id must be in format 0.0.<number>@<seconds>.<nanos> or 0.0.<number>-<seconds>-<nanos>",
         )
 
     network = settings.hedera_network
+    recipient = settings.tip_recipient_account_id or settings.hedera_account_id
+
+    # Verify transaction on-chain via Hedera Mirror Node
+    is_verified = await hcs_client.verify_hedera_transaction(
+        transaction_id=request.transaction_id,
+        expected_recipient=recipient,
+        expected_amount_hbar=request.amount,
+        network=network,
+    )
+    if not is_verified:
+        raise HTTPException(
+            status_code=400,
+            detail="Transaction verification failed. The payment transaction was not found on-chain, did not succeed, or did not send the correct HBAR amount to the platform wallet.",
+        )
+
     hashscan_url = f"https://hashscan.io/{network}/transaction/{request.transaction_id}"
     hcs_url = f"https://hashscan.io/{network}/topic/{settings.hcs_topic_id}"
+
+    fact_record = await db.get(FactRecord, request.fact_id)
+    if not fact_record:
+        fact_record = FactRecord(
+            id=request.fact_id,
+            query_id=None,
+            title=f"Fact {request.fact_id[:8]}",
+            summary="",
+            confidence=0.0,
+            sources="[]",
+            category=request.topic,
+        )
+        await db.merge(fact_record)
 
     # HCS publish is best-effort — the HBAR is already on-chain regardless
     hcs_message_id = "pending"
@@ -61,8 +89,12 @@ async def tip(
             topic=request.topic,
             amount_hbar=request.amount,
             transaction_id=request.transaction_id,
+            fact_title=fact_record.title,
+            fact_summary=fact_record.summary,
+            fact_agent_run_id=fact_record.agent_run_id,
+            fact_hcs_topic_id=fact_record.hcs_topic_id,
         )
-        hcs_message_id = str(receipt.sequence_number)
+        hcs_message_id = str(receipt.topicSequenceNumber)
     except HCSError as exc:
         logger.error(
             "HCS publish failed (tip still on-chain): fact_id=%s tx=%s err=%s",
@@ -70,21 +102,6 @@ async def tip(
             request.transaction_id,
             exc,
         )
-
-    # If the fact doesn't exist in DB yet (e.g. from a previous session),
-    # create a minimal stub so the foreign key constraint holds.
-    fact_exists = await db.get(FactRecord, request.fact_id)
-    if not fact_exists:
-        stub = FactRecord(
-            id=request.fact_id,
-            query_id=None,
-            title=f"Fact {request.fact_id[:8]}",
-            summary="",
-            confidence=0.0,
-            sources="[]",
-            category=request.topic,
-        )
-        await db.merge(stub)
 
     db.add(TipRecord(
         id=str(uuid.uuid4()),
@@ -96,6 +113,8 @@ async def tip(
         hashscan_url=hashscan_url,
         hcs_message_id=hcs_message_id,
         hcs_url=hcs_url,
+        fact_agent_run_id=fact_record.agent_run_id,
+        fact_hcs_topic_id=fact_record.hcs_topic_id,
     ))
 
     return TipResponse(

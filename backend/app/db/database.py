@@ -9,6 +9,8 @@ from sqlalchemy.orm import DeclarativeBase
 _DB_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 _DB_DIR.mkdir(exist_ok=True)
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{_DB_DIR / 'app.db'}")
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 engine = create_async_engine(DATABASE_URL, echo=False, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
 

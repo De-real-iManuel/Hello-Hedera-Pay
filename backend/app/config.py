@@ -1,6 +1,9 @@
 import re
 import sys
-from typing import Literal
+from typing import Literal, Optional
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,6 +22,7 @@ class Settings(BaseSettings):
     hedera_private_key: str
     hedera_network: Literal["testnet", "mainnet"]
     hcs_topic_id: str
+    tip_recipient_account_id: Optional[str] = None
 
     # Supabase
     supabase_url: str
@@ -34,9 +38,11 @@ class Settings(BaseSettings):
     def allowed_origins_list(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
-    @field_validator("hedera_account_id", "hcs_topic_id")
+    @field_validator("hedera_account_id", "hcs_topic_id", "tip_recipient_account_id")
     @classmethod
-    def validate_hedera_id(cls, v: str) -> str:
+    def validate_hedera_id(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
         if not re.match(r"^0\.0\.\d+$", v.strip()):
             raise ValueError(f"Must be in format 0.0.<number>, got: {v}")
         return v.strip()
