@@ -36,6 +36,7 @@ export function useWalletConnect(): UseWalletConnectReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [accountId, setAccountId] = useState<string | null>(null);
   const tipInFlightRef = useRef(false);
+  const isInitializedRef = useRef(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const connectorRef = useRef<any>(null);
 
@@ -67,7 +68,10 @@ export function useWalletConnect(): UseWalletConnectReturn {
   const connect = useCallback(async (): Promise<void> => {
     const connector = await getConnector();
     try {
-      await connector.init();
+      if (!isInitializedRef.current) {
+        await connector.init();
+        isInitializedRef.current = true;
+      }
       const session = await connector.openModal();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const accounts = Object.values(session.namespaces).flatMap((ns: any) => ns.accounts);
@@ -76,7 +80,6 @@ export function useWalletConnect(): UseWalletConnectReturn {
       setAccountId(parts[parts.length - 1]);
       setIsConnected(true);
     } catch (err: unknown) {
-      connectorRef.current = null;
       throw new Error(err instanceof Error ? err.message : 'WalletConnect pairing failed.');
     }
   }, [getConnector]);
