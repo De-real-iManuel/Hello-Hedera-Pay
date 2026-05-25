@@ -22,6 +22,9 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+logger.info("CORS Allowed Origins: %s", settings.allowed_origins_list)
+
+
 
 @app.on_event("startup")
 async def _create_tables() -> None:
