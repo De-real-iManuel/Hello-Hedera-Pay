@@ -20,8 +20,8 @@ def _uuid() -> str:
 class GUID(TypeDecorator):
     """Platform-independent GUID type.
     Uses PostgreSQL's UUID type, otherwise CHAR(36).
-    Automatically maps 'anonymous' to the Nil UUID on write,
-    and maps the Nil UUID back to 'anonymous' on read.
+    Automatically maps 'anonymous' to NULL on write,
+    and maps NULL/Nil UUID back to 'anonymous' on read.
     """
     impl = CHAR
     cache_ok = True
@@ -33,18 +33,16 @@ class GUID(TypeDecorator):
             return dialect.type_descriptor(CHAR(36))
 
     def process_bind_param(self, value, dialect):
-        if value is None:
+        if value is None or value == 'anonymous':
             return None
-        if value == 'anonymous':
-            return uuid.UUID('00000000-0000-0000-0000-000000000000')
         try:
             return uuid.UUID(value)
         except ValueError:
-            return uuid.UUID('00000000-0000-0000-0000-000000000000')
+            return None
 
     def process_result_value(self, value, dialect):
         if value is None:
-            return None
+            return 'anonymous'
         if isinstance(value, uuid.UUID):
             if str(value) == '00000000-0000-0000-0000-000000000000':
                 return 'anonymous'
@@ -59,7 +57,7 @@ class QueryRecord(Base):
     __tablename__ = "queries"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    user_id: Mapped[str] = mapped_column(GUID, nullable=False, index=True)
+    user_id: Mapped[Optional[str]] = mapped_column(GUID, nullable=True, index=True)
     topic: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     fact_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -83,13 +81,11 @@ class FactRecord(Base):
 
     query: Mapped[Optional["QueryRecord"]] = relationship("QueryRecord", back_populates="facts")
     tips: Mapped[List["TipRecord"]] = relationship("TipRecord", back_populates="fact", cascade="all, delete-orphan")
-
-
 class TipRecord(Base):
     __tablename__ = "tips"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    user_id: Mapped[str] = mapped_column(GUID, nullable=False, index=True)
+    user_id: Mapped[Optional[str]] = mapped_column(GUID, nullable=True, index=True)
     fact_id: Mapped[str] = mapped_column(String(36), ForeignKey("facts.id", ondelete="CASCADE"), nullable=False)
     topic: Mapped[str] = mapped_column(Text, nullable=False)
     amount_hbar: Mapped[float] = mapped_column(Float, nullable=False)
