@@ -52,6 +52,13 @@ export function useWalletConnect(): UseWalletConnectReturn {
     const network = process.env.NEXT_PUBLIC_HEDERA_NETWORK;
     const ledgerId = network === 'mainnet' ? LedgerId.MAINNET : LedgerId.TESTNET;
 
+    console.log('[WalletConnect] Initializing connector with config:', {
+      projectId: PROJECT_ID,
+      network,
+      ledgerId: ledgerId.toString(),
+      origin: typeof window !== 'undefined' ? window.location.origin : undefined,
+    });
+
     const connector = new DAppConnector(
       APP_METADATA,
       ledgerId,
