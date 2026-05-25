@@ -10,7 +10,7 @@ export interface UseWalletConnectReturn {
   sendHbar: (params: { recipientAccountId: string; amount: number }) => Promise<string>;
 }
 
-const PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? 'hello-hedera-pay-dev';
+const PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'hello-hedera-pay-dev';
 
 const APP_METADATA = {
   name: 'Hello Hedera Pay',
