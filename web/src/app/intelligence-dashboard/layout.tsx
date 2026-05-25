@@ -23,8 +23,13 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const { isConnected, accountId, connect, disconnect } = wallet;
 
   const handleConnect = async () => {
-    try { await connect(); }
-    catch { toast.error('Wallet connection failed. Please try again.'); }
+    try {
+      await connect();
+    } catch (err: unknown) {
+      console.error('[WalletConnect] connection error:', err);
+      const errMsg = err instanceof Error ? err.message : 'Unknown error';
+      toast.error(`Wallet connection failed: ${errMsg}`);
+    }
   };
 
   const handleDisconnect = async () => {
