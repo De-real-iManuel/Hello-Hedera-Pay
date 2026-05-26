@@ -62,7 +62,7 @@ export default function LandingFooter() {
             </p>
             <div className="flex items-center gap-3">
               <a
-                href="https://github.com"
+                href="https://github.com/De-real-iManuel/Hello-Hedera-Pay"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all duration-200"
