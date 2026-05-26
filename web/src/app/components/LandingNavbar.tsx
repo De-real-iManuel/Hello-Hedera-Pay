@@ -65,7 +65,7 @@ export default function LandingNavbar() {
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-3">
               <a
-                href="https://github.com"
+                href="https://github.com/De-real-iManuel/Hello-Hedera-Pay"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn-secondary flex items-center gap-2 text-sm"
@@ -131,7 +131,7 @@ export default function LandingNavbar() {
               </div>
               <div className="flex flex-col gap-3 mt-auto">
                 <a
-                  href="https://github.com"
+                  href="https://github.com/De-real-iManuel/Hello-Hedera-Pay"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-secondary flex items-center justify-center gap-2"
