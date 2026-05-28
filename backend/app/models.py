@@ -47,3 +47,56 @@ class ErrorResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+
+
+class MilestoneCreate(BaseModel):
+    contractor_id: str = Field(..., description="Payee's Hedera account ID")
+    contractor_user_id: str | None = Field(None, description="Payee's Platform User ID (Optional)")
+    title: str = Field(..., min_length=3, max_length=200)
+    description: str = Field(...)
+    amount_hbar: float = Field(..., gt=0)
+    invoice_ref: str = Field(..., min_length=3, max_length=100)
+
+
+class MilestoneAgentChatRequest(BaseModel):
+    milestone_id: str
+    message: str
+    action: str | None = None  # "approve" or "deny" or None
+
+class AgentKitToolCall(BaseModel):
+    name: str
+    params: dict
+    result: str | None = None
+
+class MilestoneAgentChatResponse(BaseModel):
+    response: str
+    requires_approval: bool = False
+    proposed_tool: AgentKitToolCall | None = None
+    settled_details: dict | None = None
+
+class MilestoneSettleRequest(BaseModel):
+    milestone_id: str
+    transaction_id: str | None = None # Now optional, populated by agent or frontend override
+
+
+class MilestoneAcceptRequest(BaseModel):
+    milestone_id: str
+
+
+class MilestoneResponse(BaseModel):
+    id: str
+    creator_id: str | None = None
+    contractor_id: str
+    title: str
+    description: str
+    status: str
+    amount_hbar: float
+    invoice_ref: str
+    payment_transaction_id: str | None = None
+    reward_token_mint_tx_id: str | None = None
+    certificate_nft_id: str | None = None
+    hcs_audit_sequence: str | None = None
+    contractor_user_id: str | None = None
+    contractor_accepted: bool = False
+    created_at: str
+
