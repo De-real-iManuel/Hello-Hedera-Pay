@@ -681,13 +681,13 @@ export default function ProcurementPage() {
 
                           {m.status === 'DELIVERED' && (
                             <div className="text-center text-xs font-semibold text-primary py-2 px-3 bg-primary/10 border border-primary/20 rounded-lg animate-pulse">
-                              🚀 Work Delivered! Awaiting Payee Settlement review.
+                               Work Delivered! Awaiting Payee Settlement review.
                             </div>
                           )}
 
                           {m.status === 'DISPUTED' && (
                             <div className="text-center text-xs font-semibold text-destructive py-2 px-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                              ⚠️ Escrow Disputed! Locked for AI/Multi-Sig Mediation.
+                              ️ Escrow Disputed! Locked for AI/Multi-Sig Mediation.
                             </div>
                           )}
                         </>
@@ -850,9 +850,9 @@ export default function ProcurementPage() {
               </button>
             </form>
             <div className="flex items-center gap-1.5 justify-center text-[10px] text-muted-foreground">
-              <span>🎤 Voice control enabled</span>
+              <span> Voice control enabled</span>
               <span className="w-1 h-1 rounded-full bg-border" />
-              <span>🔊 Interactive Text-to-Speech active</span>
+              <span> Interactive Text-to-Speech active</span>
             </div>
           </div>
         </div>
