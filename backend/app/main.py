@@ -64,6 +64,9 @@ app.include_router(tip_router)
 from app.routers.history import router as history_router
 app.include_router(history_router)
 
+from app.routers.milestone import router as milestone_router
+app.include_router(milestone_router)
+
 
 @app.get("/health", response_model=HealthResponse, tags=["health"])
 async def health() -> HealthResponse:
