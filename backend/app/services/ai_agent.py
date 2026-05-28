@@ -1,5 +1,4 @@
 from __future__ import annotations
-from datetime import datetime
 
 import importlib.util
 import json
@@ -7,7 +6,6 @@ import logging
 
 from fastapi import HTTPException
 from pydantic import ValidationError
-
 
 from app.models import Fact
 from app.services.llm_client import LLMError, extract_facts, extract_facts_retry
@@ -23,40 +21,28 @@ def _agent_kit_available() -> bool:
 async def _extract_facts_with_agent_kit(topic: str, sources: list[dict]) -> list[Fact]:
     """
     Use Hedera Agent Kit + LangChain ReAct agent to research a topic,
-    extract facts, settle commercial invoices, and publish receipts to HCS.
+    extract facts, and optionally publish them to HCS.
+
+    Returns a list of Fact objects annotated with agent_run_id / hcs_topic_id
+    when the kit publishes to HCS during its run.
     """
     if not _agent_kit_available():
         raise RuntimeError("Hedera Agent Kit is not installed in the current environment")
 
     from app.config import settings
-    from hedera_agent_kit import Configuration, Context
-    from hedera_agent_kit.shared.configuration import AgentMode
-    from hedera_agent_kit.shared.plugin_registry import CORE_PLUGINS
-    from hedera_agent_kit.langchain.toolkit import HederaLangchainToolkit
-    from app.services.custom_plugin import get_custom_plugin
-    from hiero_sdk_python import Client as HieroClient, AccountId as HieroAccountId, PrivateKey as HieroPrivateKey
 
-    # Initialise the Hiero SDK client
-    client = HieroClient.for_mainnet() if settings.hedera_network == "mainnet" else HieroClient.for_testnet()
-    client.set_operator(
-        HieroAccountId.from_string(settings.hedera_account_id),
-        HieroPrivateKey.from_string(settings.hedera_private_key),
+    hedera_agent_kit = importlib.import_module("hedera_agent_kit")
+    HederaAgentKit = getattr(hedera_agent_kit, "HederaAgentKit")
+
+    # Initialise the kit with operator credentials from our config
+    kit = HederaAgentKit(
+        operator_account_id=settings.hedera_account_id,
+        operator_private_key=settings.hedera_private_key,
+        network=settings.hedera_network,
     )
 
-    # Setup the Agent Context & custom plugins
-    context = Context(
-        account_id=settings.hedera_account_id,
-        mode=AgentMode.AUTONOMOUS,
-    )
-    custom_plugin = get_custom_plugin(context)
-
-    # Initialize the toolkit with core + custom plugins
-    configuration = Configuration(
-        plugins=CORE_PLUGINS + [custom_plugin],
-        context=context,
-    )
-    toolkit = HederaLangchainToolkit(client, configuration)
-    tools = toolkit.get_tools()
+    # Get LangChain-compatible tools from the kit
+    tools = kit.get_tools()
 
     # Build the ReAct agent using langgraph
     langgraph_prebuilt = importlib.import_module("langgraph.prebuilt")
@@ -83,7 +69,7 @@ async def _extract_facts_with_agent_kit(topic: str, sources: list[dict]) -> list
     source_excerpts = "\n\n".join(lines) or "(no sources)"
 
     agent_prompt = (
-        "You are an enterprise research and financial analyst specialized in commercial settlement and audit trails.\n\n"
+        "You are a research analyst specialising in uncovering hidden, non-obvious facts.\n\n"
         f"Topic: {topic}\n\n"
         f"Source material:\n{source_excerpts}\n\n"
         "Extract exactly 3 to 5 hidden or non-obvious facts from the source material above. For each fact provide:\n"
@@ -92,7 +78,8 @@ async def _extract_facts_with_agent_kit(topic: str, sources: list[dict]) -> list
         "- summary: detailed summary (max 1000 chars)\n"
         "- confidence: float 0.0-1.0 reflecting your certainty\n"
         "- sources: list of source URL strings\n\n"
-        "Additionally, you have access to enterprise tools. If relevant, you may use 'settle_commercial_invoice' to execute on-chain commercial settlements.\n"
+        "If you have an HCS topic submission tool available, publish a summary message "
+        f"to topic {settings.hcs_topic_id} with the research results.\n\n"
         "Respond with ONLY a valid JSON array of fact objects. No markdown fences, no explanation."
     )
 
@@ -130,130 +117,6 @@ async def _extract_facts_with_agent_kit(topic: str, sources: list[dict]) -> list
 
     logger.info("Agent Kit produced %d facts (run_id=%s)", len(annotated), run_id)
     return annotated
-
-
-async def execute_milestone_agent_chat(
-    milestone_id: str,
-    contractor_id: str,
-    amount_hbar: float,
-    invoice_ref: str,
-    title: str,
-    description: str,
-    message: str,
-    action: str | None = None
-) -> dict:
-    """
-    Executes a structured, step-by-step interactive dialogue with the Enterprise AI Settlement Agent.
-    Supports voice interface transcripts, human-in-the-loop validation, and triggers real HBAR/HCS operations.
-    """
-    from app.config import settings
-
-    msg_lower = message.lower().strip()
-    
-    # Check for direct action override
-    if action == "approve" or "approve" in msg_lower or "yes" in msg_lower or "authorize" in msg_lower:
-        # User confirmed! Run tools autonomously using Hedera Agent Kit client
-        if not _agent_kit_available():
-            raise RuntimeError("Hedera Agent Kit is not installed in the current environment")
-
-        from hedera_agent_kit import Context
-        from app.services.custom_plugin import get_custom_plugin
-        from hiero_sdk_python import Client as HieroClient, AccountId as HieroAccountId, PrivateKey as HieroPrivateKey
-
-        # Setup Client
-        client = HieroClient.for_mainnet() if settings.hedera_network == "mainnet" else HieroClient.for_testnet()
-        client.set_operator(
-            HieroAccountId.from_string(settings.hedera_account_id),
-            HieroPrivateKey.from_string(settings.hedera_private_key),
-        )
-
-        context = Context(account_id=settings.hedera_account_id)
-        plugin = get_custom_plugin(context)
-        tools = plugin.tools(context)
-
-        settle_tool = next((t for t in tools if t.method == "settle_commercial_invoice"), None)
-        hcs_tool = next((t for t in tools if t.method == "submit_hcs_receipt"), None)
-
-        if not settle_tool or not hcs_tool:
-            raise RuntimeError("Required settlement tools missing from enterprise plugin")
-
-        # 1. Execute HBAR Transfer tool
-        from app.services.custom_plugin import SettleInvoiceParams, SubmitHCSParams
-        settle_params = SettleInvoiceParams(
-            recipient_id=contractor_id,
-            amount_hbar=amount_hbar,
-            invoice_ref=invoice_ref
-        )
-        
-        logger.info("Agent executing Settle Commercial Invoice: recipient=%s, amount=%f HBAR", contractor_id, amount_hbar)
-        settle_response = await settle_tool.execute(client, context, settle_params)
-
-        if settle_response.error:
-            return {
-                "response": f"I attempted to settle the invoice but encountered an on-chain ledger error: {settle_response.error}. Let me know if you would like me to try again.",
-                "requires_approval": False,
-                "proposed_tool": None,
-                "settled_details": None
-            }
-
-        # Extracted Tx ID
-        tx_data = settle_response.extra or {}
-        tx_id = tx_data.get("transaction_id") or "N/A"
-
-        # 2. Execute HCS Audit receipt logging tool
-        audit_msg = f"Milestone Escrow Settle - Title: {title}. Invoice Ref: {invoice_ref}. Transferred {amount_hbar} HBAR to {contractor_id}. Tx ID: {tx_id}"
-        hcs_params = SubmitHCSParams(
-            topic_id=settings.hcs_topic_id,
-            message=audit_msg
-        )
-        logger.info("Agent executing Submit HCS Receipt message to topic=%s", settings.hcs_topic_id)
-        hcs_response = await hcs_tool.execute(client, context, hcs_params)
-        
-        hcs_data = hcs_response.extra or {}
-        sequence_no = hcs_data.get("hcs_sequence_number") or "N/A"
-
-        return {
-            "response": f"Splendid! I have successfully executed the real on-chain transaction. {settle_response.human_message} Furthermore, I've published the immutable audit log to HCS topic {settings.hcs_topic_id} under Sequence #{sequence_no}. Milestone procurement escrow is fully resolved and complete!",
-            "requires_approval": False,
-            "proposed_tool": None,
-            "settled_details": {
-                "transaction_id": tx_id,
-                "hcs_sequence_number": sequence_no,
-                "reward_token_mint_tx_id": f"0.0.1098@{int(datetime.now().timestamp())}.111222",
-                "certificate_nft_id": f"0.0.987654-{sequence_no if sequence_no.isdigit() else 1}"
-            }
-        }
-
-    if action == "deny" or "deny" in msg_lower or "cancel" in msg_lower or "no" in msg_lower:
-        return {
-            "response": f"Escrow release request has been cancelled by the corporate treasurer. I will leave the milestone escrow contract active in its PENDING state. Let me know when you're ready to proceed with settlement.",
-            "requires_approval": False,
-            "proposed_tool": None,
-            "settled_details": None
-        }
-
-    # Default: Propose the on-chain settlement and request HITL authorization
-    proposed = {
-        "name": "Settle Commercial Invoice & Submit HCS Receipt",
-        "params": {
-            "recipient_id": contractor_id,
-            "amount_hbar": amount_hbar,
-            "invoice_ref": invoice_ref,
-            "hcs_topic_id": settings.hcs_topic_id
-        }
-    }
-
-    return {
-        "response": f"Greetings! I am your Enterprise Settlement AI Assistant. I detected an active milestone release request for your escrow agreement '{title}' (Invoice: {invoice_ref}) with value {amount_hbar} HBAR payable to contractor {contractor_id}. \n\n"
-                    f"To finalize this agreement, I am preparing to execute two on-chain actions:\n"
-                    f"1. **Settle Commercial Invoice**: Transfer {amount_hbar} HBAR to payee `{contractor_id}`.\n"
-                    f"2. **Submit HCS Receipt**: Publish an immutable audit trail receipt to Hedera Consensus Service topic `{settings.hcs_topic_id}`.\n\n"
-                    f"Please confirm: Do you authorize the execution of these on-chain treasury actions?",
-        "requires_approval": True,
-        "proposed_tool": proposed,
-        "settled_details": None
-    }
-
 
 
 def compute_confidence(llm_self_score: float, source_urls: list[str]) -> float:
