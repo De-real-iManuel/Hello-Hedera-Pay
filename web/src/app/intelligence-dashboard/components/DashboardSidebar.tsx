@@ -15,12 +15,14 @@ import {
   Activity,
   FileText,
   HelpCircle,
+  Coins,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RecentQuery } from '../DashboardShellContext';
 
 const navItems = [
   { key: 'nav-dashboard', icon: LayoutDashboard, label: 'Intelligence Hub', href: '/intelligence-dashboard' },
+  { key: 'nav-procurement', icon: Coins, label: 'Procurement Escrow', href: '/intelligence-dashboard/procurement' },
   { key: 'nav-hcs', icon: Database, label: 'HCS Publications', href: '/intelligence-dashboard/hcs-publications' },
   { key: 'nav-reports', icon: FileText, label: 'Reports', href: '/intelligence-dashboard/reports' },
   { key: 'nav-registry', icon: BookOpen, label: 'HOL Registry', href: '/intelligence-dashboard/hol-registry' },
