@@ -98,3 +98,23 @@ class TipRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     fact: Mapped["FactRecord"] = relationship("FactRecord", back_populates="tips")
+
+
+class MilestoneRecord(Base):
+    __tablename__ = "milestones"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[Optional[str]] = mapped_column(GUID, nullable=True, index=True)
+    contractor_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="PENDING")
+    amount_hbar: Mapped[float] = mapped_column(Float, nullable=False)
+    invoice_ref: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    payment_transaction_id: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    reward_token_mint_tx_id: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    certificate_nft_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    hcs_audit_sequence: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    contractor_user_id: Mapped[Optional[str]] = mapped_column(GUID, nullable=True, index=True)
+    contractor_accepted: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
