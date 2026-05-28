@@ -17,8 +17,8 @@ const footerLinks = [
     heading: 'Platform',
     links: [
       { label: 'Launch App', href: '/intelligence-dashboard', key: 'fl-app' },
-      { label: 'API Reference', href: '#', key: 'fl-api' },
-      { label: 'Changelog', href: '#', key: 'fl-changelog' },
+      { label: 'API Reference', href: '/docs', key: 'fl-api' },
+      { label: 'Pricing Plan', href: '/pricing', key: 'fl-pricing' },
       { label: 'Status', href: '#', key: 'fl-status' },
     ],
   },
@@ -26,9 +26,9 @@ const footerLinks = [
     key: 'col-resources',
     heading: 'Resources',
     links: [
-      { label: 'Documentation', href: '#', key: 'fl-docs' },
-      { label: 'HCS Overview', href: '#', key: 'fl-hcs' },
-      { label: 'HOL Registry', href: '#', key: 'fl-hol' },
+      { label: 'Documentation', href: '/docs', key: 'fl-docs' },
+      { label: 'HCS Overview', href: '/docs#hcs-audits', key: 'fl-hcs' },
+      { label: 'HOL Registry', href: '/docs#state-machine', key: 'fl-hol' },
       { label: 'Hedera Network', href: 'https://hedera.com', key: 'fl-hedera' },
     ],
   },
@@ -36,10 +36,10 @@ const footerLinks = [
     key: 'col-company',
     heading: 'Company',
     links: [
-      { label: 'About', href: '#', key: 'fl-about' },
+      { label: 'About', href: '/about', key: 'fl-about' },
       { label: 'Blog', href: '#', key: 'fl-blog' },
-      { label: 'Privacy Policy', href: '#', key: 'fl-privacy' },
-      { label: 'Terms of Service', href: '#', key: 'fl-terms' },
+      { label: 'Privacy Policy', href: '/privacy', key: 'fl-privacy' },
+      { label: 'Terms of Service', href: '/terms', key: 'fl-terms' },
     ],
   },
 ];

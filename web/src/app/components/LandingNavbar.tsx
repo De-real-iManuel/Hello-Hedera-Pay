@@ -7,10 +7,10 @@ import { ExternalLink, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const navLinks = [
-  { label: 'Features', href: '#features', key: 'nav-features' },
-  { label: 'Demo', href: '#demo', key: 'nav-demo' },
-  { label: 'Docs', href: '#docs', key: 'nav-docs' },
-  { label: 'Pricing', href: '#pricing', key: 'nav-pricing' },
+  { label: 'Features', href: '/#features', key: 'nav-features' },
+  { label: 'Demo', href: '/#demo', key: 'nav-demo' },
+  { label: 'Docs', href: '/docs', key: 'nav-docs' },
+  { label: 'Pricing', href: '/pricing', key: 'nav-pricing' },
 ];
 
 function GithubIcon({ size = 16 }: { size?: number }) {
