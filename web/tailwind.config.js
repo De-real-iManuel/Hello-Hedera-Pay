@@ -34,6 +34,9 @@ module.exports = {
         border: { DEFAULT: 'var(--border)' },
         input: { DEFAULT: 'var(--input)' },
         ring: { DEFAULT: 'var(--ring)' },
+        success: { DEFAULT: 'var(--success)' },
+        warning: { DEFAULT: 'var(--warning)' },
+        destructive: { DEFAULT: 'var(--destructive)' },
       },
       borderRadius: {
         DEFAULT: 'var(--radius)',

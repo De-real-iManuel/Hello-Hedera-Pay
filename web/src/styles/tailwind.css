@@ -18,6 +18,9 @@
   --border: #1A2A3A;
   --input: #0D1520;
   --ring: #00B388;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --destructive: #EF4444;
   --radius: 12px;
   --font-sans: var(--font-dm-sans), 'DM Sans', sans-serif;
   --font-mono: var(--font-ibm-plex-mono), 'IBM Plex Mono', monospace;
